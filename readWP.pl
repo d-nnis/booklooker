@@ -10,8 +10,9 @@ my $output_file = "f:\\Users\\d-nnis\\reapWP_output.html";
 my $cookie_file = "f:\\Users\\d-nnis\\reapWP_cookie.txt";
 my $login_url = "http://web6.codeprobe.de/wikka/UserSettings";
 my $url2 = "http://web6.codeprobe.de/wikka/SammLung";
-my $uname = '';
-my $pwd = '';
+my %config = File::readfile("..\\_excl\\login.csv",'config');
+my $uname = $config{uname};
+my $pwd = $config{pwd};
 
 my $ua = LWP::UserAgent->new();
 $ua->cookie_jar(HTTP::Cookies->new(file => "$cookie_file", autosave => 1));

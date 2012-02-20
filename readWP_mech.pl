@@ -1,19 +1,22 @@
 use strict;
 use warnings;
+use Essent_BL;
 use WWW::Mechanize;
 use HTTP::Cookies;
 use feature qw/switch/;
 use HTML::PullParser;
 use HTML::TokeParser;
 
+my %config = File::readfile("..\\_excl\\login.csv",'config');
 
 package main;
+
 
 my $url = "http://www.booklooker.de/";
 my $output_file = "f:\\Users\\d-nnis\\reapWP_output.html"; 
 my $cookie_file = "f:\\Users\\d-nnis\\reapWP_cookie.txt";
-my $username = '';
-my $password = '';
+my $username = $config{uname};
+my $password = $config{pwd};
 
 
 my $mech = WWW::Mechanize->new();
@@ -180,9 +183,9 @@ sub sammel_verk {
 			$mech->follow_link(text=>$link_name, n=>$hit_list);
 			main::tp_content;
 			while (my $token2 = $tp->get_tag("h2")) {
-				$token2->[1]{class} eq 'offerers'
+				$token2->[1]{class} eq 'offerers';
 			}
-			if () {
+			if (1) {
 				
 			} else {
 				
