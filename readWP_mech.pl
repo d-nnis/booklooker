@@ -9,8 +9,9 @@ use HTML::TokeParser;
 
 my %config = File::readfile("..\\_excl\\login.csv",'config');
 
+##################
 package main;
-
+##################
 
 my $url = "http://www.booklooker.de/";
 my $output_file = "f:\\Users\\d-nnis\\reapWP_output.html"; 
@@ -33,14 +34,14 @@ $bookl->merkzettel;
 $bookl->{verk_n} = 3;
 foreach my $titel (keys %{$bookl->{buecher}}) {
 	# rufe suche auf
-	$bookl->suche_titel();
-	if ($bookl->{treffer} == 0) {
-		# vermerk dafür?
-		next;
-	}
+	$bookl->suche_titel($titel);
+#	if ($bookl->{treffer} == 0) {
+#		# vermerk dafür?
+#		next;
+#	}
 	
 	# pro buech die ersten n ( $bookl->{verk_n} ) Verkäufer heraus suchen
-	$bookl->sammel_verk;
+	$bookl->sammel_verk($titel);
 }
 exit 2;
 
@@ -50,26 +51,12 @@ sub tp_content {
 	$tp = HTML::TokeParser->new(doc => \$mech->content);
 }
 sub getstate {
-	writefile($output_file, $mech->content);
-}
-sub writefile {
-	my $file = shift;
-	#my @lines = @_[1 .. $#_];	# alle Elemente 1 bis Ende
-	my @lines = @_;	# alle Elemente 1 bis Ende
-	print "write file ", $file;
-	if (!open (WFILE, '>', $file) ) {
-		print "\n!!! Achtung: Kann $file nicht oeffnen: $!\nNeuer Versuch Tastendruck";
-		while (<STDIN> eq '') {}
-		writefile($file, @lines);
-	}
-	open (WFILE, '>', $file);
-	print WFILE @lines;
-	print " lines: ", scalar @lines, ".\n";
-	close WFILE;
+	File::writefile($output_file, $mech->content);
 }
 
+###################
 package Booklooker;
-
+###################
 sub new {
 	my $class = shift;
 	my $self = {};
@@ -129,124 +116,89 @@ sub tokeparse_titel {
 
 sub suche_titel {
 	my $self = shift;
+	my $titel = shift;
 	$self->{treffer} = 0;
-	foreach my $titel (keys %{$self->{buecher}} ) {
-		$mech->get("https://secure.booklooker.de/app/search.php");
-		$mech->form_name('eingabe');
-		$mech->field(titel=>$titel);
-		my $autor = ${$self->{buecher}}{$titel}{autor};
-		$mech->field(autor=>$autor);
-		$mech->click();
-		# Treffer?
-		if ( $mech->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {	# kein Treffer für den Titel
-			return;
-		}
-		# Sortierung nach Preis
-		main::getstate();
-		if ($mech->find_link('Preis')) {
-			$mech->follow_link(text=>'Preis');
-			main::getstate();
-		}
-		# Anzeige auf 50 Titel vergrößern
-		if ($mech->find_link(text=>'50')) {
-			$mech->follow_link(text=>'50');
-			main::getstate();		
-		}
-		print "";
-		main::tp_content;
-		#while (my $token = ($tp->get_tag("td"))->[1]{class} ) {
-		while (my $token = $tp->get_tag("td")) {
-			my $att = $token->[1]{class};
-			next unless $att eq 'resultlist_count';
-			my $text = $tp->get_trimmed_text("/td");
-			$text =~ /(\d+)\sTreffer/;
-			$self->{treffer} = $1;
-			print "";
-		}
-		return $self->{treffer};
+	$mech->get("https://secure.booklooker.de/app/search.php");
+	$mech->form_name('eingabe');
+	$mech->field(titel=>$titel);
+	my $autor = ${$self->{buecher}}{$titel}{autor};
+	$mech->field(autor=>$autor);
+	$mech->click();
+	# Treffer?
+	if ( $mech->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {	# kein Treffer für den Titel
+		return;
 	}
+	# Sortierung nach Preis
+	main::getstate();
+	if ($mech->find_link('Preis')) {
+		$mech->follow_link(text=>'Preis');
+	}
+	# Anzeige auf 50 Titel vergrößern
+	if ($mech->find_link(text=>'50')) {
+		$mech->follow_link(text=>'50');
+		main::getstate();		
+		
+	}
+	main::tp_content;
+	#while (my $token = ($tp->get_tag("td"))->[1]{class} ) {
+	while (my $token = $tp->get_tag("td")) {
+		my $att = $token->[1]{class};
+		next unless $att eq 'resultlist_count';
+		my $text = $tp->get_trimmed_text("/td");
+		$text =~ /(\d+)\sTreffer/;
+		${$self->{buecher}}{$titel}{treffer} = $1;
+		last;
+	}
+	print "";
 }
 
 sub sammel_verk {
 	my $self = shift;
+	my $titel = shift;
 	my $verk_found = 0;
-
+	main::tp_content;
+	main::getstate;
+	my $liste_n = 1;
+	my $offerers = 0;
 	while ($verk_found < $self->{verk_n}) {
+		# folge dem Angebot	
+		$mech->follow_link(text_regex=> qr/$titel/i, n=>$liste_n);
 		main::tp_content;
-		#$self->tokeparse_titel();
-		my $hit_list=0;
-		while (my $token = $tp->get_tag("span")) {
-			next unless $token->[1]{class} eq 'artikeltitel';
-			my $link_name = $tp->get_trimmed_text("/span");
-			$hit_list++;
-			# folge dem Angebot
-			$mech->follow_link(text=>$link_name, n=>$hit_list);
-			main::tp_content;
-			while (my $token2 = $tp->get_tag("h2")) {
-				$token2->[1]{class} eq 'offerers';
+		main::getstate;
+		while (my $token2 = $tp->get_tag("h2")) {
+			$offerers = 1 if $token2->[1]{class} eq 'offerers';
+		}
+		if ($offerers) {
+			## b) Liste
+			## Verkäufernamen
+			$liste_n = 1;
+			while (my $token3 = $tp->get_tag("td")) {
+				next unless $token3->[1]{class} eq "sellerinfo";
+				my $text = $tp->get_trimmed_text("/td");
+				$text =~ /von\s(.+)/;
+				push @{$self->{verk}}, $1;
+				$verk_found++;
+				last if ($self->{verk_n}) => $verk_found;
+				# <td class="sellerinfo">
+				# =~ /von <a href.+\>(.+)<\\a>/
+				# </td>
+				# Fall: Ende der Verkäuferliste
+				# mech->back!?
+				# $offerers = 0 wann?
 			}
-			if (1) {
-				
-			} else {
-				
-			}
-			$mech->content =~ /nlichen Angebot von (\w+)<\/a>/;
+		} else {
+			## a) ein Artikel
+			## Verkäufernamen
+			my $con = $mech->content;
+			File::writefile("con.html", $con);
+			$con =~ />([\w\s]+)<\/a>\s+| Dieser Artikel wurde bereits/;
 			push @{$self->{verk}}, $1;
+			$verk_found++;
+			$liste_n++;
 			$mech->back();
 			main::getstate;
 			print "";
 		}
-		# folge dem Angebot
-		# entscheide:
-		## a) ein Artikel?
-		## Verkäufernamen
-		## b) Liste?
-		## Verkäufernamen
-	}
-	for (my $i = 0; $i <=3; $i++) {
-		$mech->follow_link(text=>'$titel', n=>$i);	# -> Angebot
-
-		
-		$tp = HTML::TokeParser->new(doc => \$mech->content);
-		my $tee = ($tp->get_tag("h2"))->[1]{class};
-		if ( ($tp->get_tag("h2"))->[1]{class} eq 'offerers') {	# neue Liste
-			# sortieren nach 
-
-		} else {	# einzelner Verkäufer
-			# -> Verkaeufer-Profil
-			$mech->follow_link(text=>'>> Benutzer-Profil (Impressum) anzeigen');
-			# -> alle Buecher, Verkäufer-spezifische Suche
-			$mech->follow_link(text=>'Bücher');
-			foreach my $titel (keys %{$self->{buecher}}) {
-				$mech->form_name('eingabe');
-				$mech->field(autor=>${$self->{buecher}}{$titel}{autor} = $tp->get_trimmed_text("br")); # Autor
-				#$mech->field(autor=>$autor);
-				$mech->field(titel=>$titel);
-				$mech->click();
-				
-
-				if ( $mech->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {	# kein Treffer bei dem Verkäufer
-					
-				} else {	# Treffer
-					# notiere auf Verkäufer (Hash) Preis, Versand etc.
-				}
-				
-			}
-		
-		}
-		
-		# wieder zurück
-		
-#		while (my $token = $tp->get_tag("span")) {
-#			# ein Buch
-#			print "Token: ", $token->[1]{class}, "\n";
-#			next unless $token->[1]{class} eq 'artikeltitel';
-#			$number_buecher++; 
-#			my $text_titel = $tp->get_trimmed_text("/span");
-#			$buecher{$text_titel}{autor} = $tp->get_trimmed_text("br"); # Autor 
-#			my $text_hrsg = $tp->get_trimmed_text("br/");
-#			my $text_state = $tp->get_trimmed_text("/td");
-#		}
 	}
 }
 
@@ -255,116 +207,6 @@ sub tp_content {
 	my $self = shift;
 	$self->{tp} = HTML::TokeParser->new(doc => \$mech->content);
 }
-
-exit 1;
-
-my %buecher;
-my $number_buecher;
-
-
-### Suche, Start
-foreach my $titel (keys %buecher) {
-	$mech->get("https://secure.booklooker.de/app/search.php");
-	$mech->form_name('eingabe');
-	$mech->field(titel=>$titel);
-	my $autor = $buecher{$titel}{autor};
-	$mech->field(autor=>$autor);
-	$mech->click();
-	# Sortierung nach Preis
-	getstate();
-	$mech->follow_link('Preis');
-	getstate();
-	if ($mech->find_link(text=>'50')) {
-		$mech->follow_link('50');
-		getstate();		
-	}
-
-	# über die ersten n Angebote nach allen anderen keys %buechern suchen
-	# 3 Angebote
-	for (my $i = 1; $i <=3; $i++) {
-		# -> Angebot
-		$mech->follow_link(text=>'$titel', n=>$i);
-		$tp = HTML::TokeParser->new(doc => \$mech->content);
-		my $tee = ($tp->get_tag("h2"))->[1]{class};
-		if ( ($tp->get_tag("h2"))->[1]{class} eq 'offerers') {	# neue Liste
-			# sortieren nach 
-
-		} else {	# einzelner Verkäufer
-			# -> Verkaeufer-Profil
-			$mech->follow_link(text=>'>> Benutzer-Profil (Impressum) anzeigen');
-			# -> alle Buecher, Verkäufer-spezifische Suche
-			$mech->follow_link(text=>'Bücher');
-			foreach my $titel (keys %buecher) {
-				$mech->form_name('eingabe');
-				$mech->field(autor=>$autor);
-				$mech->field(titel=>$titel);
-				$mech->click();
-				
-
-				if ( $mech->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {	# kein Treffer bei dem Verkäufer
-					
-				} else {	# Treffer
-					# notiere auf Verkäufer (Hash) Preis, Versand etc.
-				}
-				
-			}
-		
-		}
-		
-		# wieder zurück
-		
-		while (my $token = $tp->get_tag("span")) {
-			# ein Buch
-			print "Token: ", $token->[1]{class}, "\n";
-			next unless $token->[1]{class} eq 'artikeltitel';
-			$number_buecher++; 
-			my $text_titel = $tp->get_trimmed_text("/span");
-			$buecher{$text_titel}{autor} = $tp->get_trimmed_text("br"); # Autor 
-			my $text_hrsg = $tp->get_trimmed_text("br/");
-			my $text_state = $tp->get_trimmed_text("/td");
-		}
-	}
-}
-
-
-# Liste der Titel
-# Suche
-# über jeden Verkäufer abfrage der Titel
-
-sub check_verkaeufer {
-	
-}
-
-
-#############
-sub wikka_login {
-	my $url = "http://web6.codeprobe.de/wikka/UserSettings";
-	my $appurl = "http://web6.codeprobe.de/wikka/SammLung";
-	my $output_file = "f:\\Users\\d-nnis\\reapWP_output.html"; 
-	my $cookie_file = "f:\\Users\\d-nnis\\reapWP_cookie.txt";
-	
-	my $username = 'DennisDoe';
-	my $password = '6h3vzWikka';
-	
-	my $mech = WWW::Mechanize->new();
-	$mech->cookie_jar(HTTP::Cookies->new(file => "$cookie_file", autosave => 1));
-	$mech->get($url);
-	#$mech->form_name('');
-	$mech->form_id('form_42b90196b4');
-	$mech->field(name=>$username);
-	$mech->field(password=>$password);
-	writefile($output_file, $mech->content);
-	$mech->click();
-	my $page_content = $mech->content();
-	writefile($output_file, $page_content);
-	$mech->get($appurl);
-	my $sammlung_content = $mech->content();
-	writefile($output_file, $sammlung_content);
-};
-
-
-
-
 
 ####### OFF
 
