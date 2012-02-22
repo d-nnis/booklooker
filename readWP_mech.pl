@@ -7,6 +7,10 @@ use feature qw/switch/;
 use HTML::PullParser;
 use HTML::TokeParser;
 use base qw(HTML::Parser);
+use bytes;
+no utf8;
+use Encode;
+use URI::Escape;
 
 my %config = File::readfile("..\\_excl\\login.csv",'config');
 
@@ -27,7 +31,16 @@ my $password = $config{pwd};
 my $browser = WWW::Mechanize->new();
 my $tp = HTML::TokeParser->new(doc => \$browser->content);
 
-# dasdas
+
+
+# encoding
+my $str = uri_escape_utf8(encode('utf8', 'ASÄÖÜßäöü'));
+my $str1 = encode('iso-8859-1','ASÄÖÜßäöü');
+my $str2 = decode('iso-8859-1', 'ASÄÖÜßäöü');
+#print $str,"\n";
+print uri_escape_utf8($str1),"\n";
+print uri_escape_utf8($str2);
+#
 
 my $bookl=Booklooker->new;
 $bookl->login;
@@ -42,7 +55,7 @@ foreach my $titel (keys %{$bookl->{buecher}}) {
 #		# vermerk dafür?
 #		next;
 #	}
-	# pro buech die ersten n ( $bookl->{verk_n} ) Verkäufer heraus suchen
+	# pro buch die ersten n ( $bookl->{verk_n} ) Verkäufer heraus suchen
 	%verk_liste = (%verk_liste, $bookl->sammel_verk($titel));
 	#-> $bookl->{verk};
 }
@@ -61,6 +74,39 @@ sub getstate {
 	File::writefile($output_file, $browser->content);
 	my @args = ("f:\\Program Files (x86)\\K-Meleon\\k-meleon.exe",$output_file);
 	system(@args); 
+}
+sub convert_char {
+	my $string = shift;
+	my $wert;
+	#my @arr = split//, $string;
+	#$string =~ s/[ä,ö,ü,Ä,Ö,Ü,ß]/('&auml;', '&ouml;', '&uuml;', '&Auml;', '&Ouml;', '&Uuml;', '&szlig;')/;
+#	$string =~ s/ä/&auml;/;
+#	$string =~ s/ö/&ouml;/;
+#	$string =~ s/ü/&uuml;/;
+#	$string =~ s/Ä/&Auml;/;
+#	$string =~ s/Ö/&Ouml;/;
+#	$string =~ s/Ü/&Uuml;/;
+#	$string =~ s/ß/&szlig;/;
+#	$string=~s/Ä/Ã\204/;
+#	$string=~s/Ö/Ã\226/;
+#	$string=~s/Ü/Ã\234/;
+#	$string=~s/ß/Ã\237/;
+#	$string=~s/ö/Ã¶/;
+#	$string=~s/ü/Ã¼/;
+#	$string=~s/ä/Ã¤/;
+
+	#$wert=~s/Ã\204/Ä/;
+	#$wert=~s/Ã\226/Ö/;
+	#$wert=~s/Ã\234/Ü/;
+	#$wert=~s/Ã\237/ß/;
+	#$wert=~s/Ã¶/ö/;
+	#$wert=~s/Ã¼/ü/;
+	#$wert=~s/Ã¤/ä/;
+	
+	#$string =~s /ß/%DF/;
+	#$string = uri_escape_utf8(encode('iso-8859-1', $string));
+	$string = uri_unescape_utf8($string);
+	return $string;
 }
 
 ###################
@@ -171,12 +217,14 @@ sub suche_titel {
 	$self->{treffer} = 0;
 	$browser->get("https://secure.booklooker.de/app/search.php");
 	$browser->form_name('eingabe');
-	$browser->field(titel=>$titel);
+	#$browser->field(titel=>$titel);
+	$browser->field(titel=>main::convert_char($titel));
 	my $autor = ${$self->{buecher}}{$titel}{autor};
-	$browser->field(autor=>$autor);
+	$browser->field(autor=>main::convert_char($autor));
 	$browser->click();
 	# Treffer?
 	if ( $browser->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {	# kein Treffer für den Titel
+		main::getstate;
 		return;
 	}
 	# Sortierung nach Preis
@@ -206,6 +254,7 @@ sub suche_titel {
 sub sammel_verk {
 	my $self = shift;
 	my $titel = shift;
+	$titel = main::convert_char($titel);
 	my %verk_liste;
 	# leere liste drauf gepusht
 	my $verk_gesammelt_0 = 0;	# Ergebnisse, Ebene 0
@@ -228,6 +277,13 @@ sub sammel_verk {
 		# follow_link(url=>'http')
 		# Spaß ->  SpaÃŸ
 		# Wölfisch für Hundehalter -> WÃ¶lfisch fÃ¼r Hundehalter
+		############
+
+   my @vorlage = (
+        ['ä',      'ö',      'ü',      'Ä',      'Ö',      'Ü',      'ß'],
+        ['&auml;', '&ouml;', '&uuml;', '&Auml;', '&Ouml;', '&Uuml;', '&szlig;']
+    );
+		############
 		$browser->follow_link(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
 		# ersetzen mit: $browser->follow_link($found_link); oder $browser->follow_link($link); 
 		main::tp_content;
@@ -263,13 +319,34 @@ sub sammel_verk {
 			## Verkäufernamen
 			#my $con = $browser->content;
 			#File::writefile("con.html", $con);
-			$browser->content =~ />([\w\s]+)<\/a>\s+| Dieser Artikel wurde bereits/;
+			
+			#$browser->content =~ />([\w\s]+)<\/a>\s+| Dieser Artikel wurde bereits/;
+			
+			main::tp_content;
+			my $text;
+#			while (my $token3 = $tp->get_tag("table")) {
+#				next unless $token3->[1]{id} eq "seller";
+#				$text = $tp->get_trimmed_text("/a");
+#				last;
+#			}
+			# <a href="/app/profile.php?profileuID=3326905" >&Auml;ndi</a>
+			# NOT: <a href="/app/profile.php?profileuID=3326905" >&gt;&gt; Benutzer-Profil  anzeigen</a><br>
+			
+			my $text_verk;
+			while (my $token3 = $tp->get_tag("a")) {
+				my $attrdesc = $token3->[1]{href};
+				next unless $attrdesc =~ /profileuID/;
+				$text_verk = $tp->get_trimmed_text("/a");
+				next if $text_verk =~ /Benutzer-Profil/;
+				last;
+			}
 			# suche verk
 			# table id ="seller"
 			# Verkäufer/in: (buecher.de)
 			# </a>
-			$verk_liste{$1}=1;
-			print "match:--$1--\n"; 
+			$text =~ /Verkäufer\/in(\w\s)+/;
+			$verk_liste{$text_verk}=1;
+			print "match:--$text_verk--\n"; 
 			$verk_gesammelt_0++;
 			$browser->back();
 			main::getstate;
@@ -285,7 +362,7 @@ sub suche_verk_buecher {
 	$browser->get("https://secure.booklooker.de/app/search.php");
 	foreach my $titel (keys %{$self->{buecher}}) {
 		$browser->form_name("eingabe");
-		$browser->field(searchUsername=>$verk);
+		$browser->field(searchUsername=>main::convert_char($verk));
 		$browser->click();
 		main::getstate;
 		# Profil von Verkäufer
@@ -293,8 +370,8 @@ sub suche_verk_buecher {
 		main::getstate;
 		# Suchformular mit Verkäufer
 		$browser->form_name("eingabe");
-		$browser->field(autor=>${$self->{buecher}{$titel}});
-		$browser->field(titel=>$titel);
+		$browser->field(autor=>main::convert_char(${$self->{buecher}{$titel}}));
+		$browser->field(titel=>main::conver_char($titel));
 		main::getstate;
 		$browser->click();
 		main::getstate;
