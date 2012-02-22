@@ -1,0 +1,18 @@
+
+match "Steinberger Hof"
+
+/in:\r\n\s+<a .+?>/
+========
+	
+			<div align="left" style="margin-top: 0px; width: 530px;">
+			Verkäufer/in:
+			<a href="/app/profile.php?profileuID=3253529" >Steinberger Hof</a>
+							| Dieser Artikel wurde bereits 37 mal aufgerufen.
+					</div>
+========
+
+	<div align="left" style="margin-top: 0px; width: 530px;">
+			Verkäufer/in:
+			<a href="/app/profile.php?profileuID=3326905" >Ändi</a>
+							| Dieser Artikel wurde bereits 3 mal aufgerufen.
+					</div>
