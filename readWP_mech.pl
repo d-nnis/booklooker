@@ -6,6 +6,7 @@ use HTTP::Cookies;
 use feature qw/switch/;
 use HTML::PullParser;
 use HTML::TokeParser;
+#use HTML::Parser;
 use base qw(HTML::Parser);
 use utf8;
 no utf8;
@@ -107,6 +108,12 @@ sub login {
 	$cookie_jar->load($cookie_booklooker);
 	$browser->cookie_jar($cookie_jar);
 	$browser->get($url);
+	## test parser
+	$browser->get("http://www.booklooker.de/app/resultnew.php?id=1011076818&setMediaType=0");
+	main::getstate;
+	my $parser = MyParser->new();
+	my $seller_number = $parser->parse($browser->content);
+	##
 	if ($self->is_logged_in) {
 		print "Already logged in booklooker.de\n";
 	} else {
@@ -392,7 +399,7 @@ sub tp_content {
 
 package MyParser;
 use base qw(HTML::Parser);
-use LWP::Simple ();
+#use LWP::Simple ();
 
 ## new
 
@@ -401,21 +408,23 @@ sub start {
 	my ($self, $tagname, $attr, $attrseq, $origtext) = @_;
 	given ($tagname) {
 		when ("td") {
-			if ($attr->{class} && $attr->{class} eq 'sellerinfo') {
-				my $tee = $self->text();
+			if ($attr->{class} eq "sellerinfo") {
+				#my $tee = $self->text();
 				print "";
 				print "tr: Schluessel: ", keys %$attr, "\n";
 				print "class: ", $attr->{class}, "\n";
 				print "content: ", $attr->{content}, "\n";
-				$seller_number++;
+				print "origtext: $origtext\n";
+				print "Text: --@{$self->{text}}--\n";
+				$self->{seller_number}++;
 			}
 
 		}
 	}
-	return $seller_number;
+	return $self->{seller_number};
 }
 
 sub text {
-	my ($self, $wtf) = @_;
-	return $wtf;
+	my $self = shift;
+	@{$self->{text}} = @_;
 }
