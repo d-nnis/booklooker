@@ -65,31 +65,8 @@ sub getstate {
 }
 sub convert_char {
 	my $string = shift;
-	my $wert;
-	#my @arr = split//, $string;
-	#$string =~ s/[ä,ö,ü,Ä,Ö,Ü,ß]/('&auml;', '&ouml;', '&uuml;', '&Auml;', '&Ouml;', '&Uuml;', '&szlig;')/;
-#	$string =~ s/ä/&auml;/;
-#	$string =~ s/ö/&ouml;/;
-#	$string =~ s/ü/&uuml;/;
-#	$string =~ s/Ä/&Auml;/;
-#	$string =~ s/Ö/&Ouml;/;
-#	$string =~ s/Ü/&Uuml;/;
-#	$string =~ s/ß/&szlig;/;
-#	$string=~s/Ä/Ã\204/;
-#	$string=~s/Ö/Ã\226/;
-#	$string=~s/Ü/Ã\234/;
-#	$string=~s/ß/Ã\237/;
-#	$string=~s/ö/Ã¶/;
-#	$string=~s/ü/Ã¼/;
-#	$string=~s/ä/Ã¤/;
-
-	#$wert=~s/Ã\204/Ä/;
-	#$wert=~s/Ã\226/Ö/;
-	#$wert=~s/Ã\234/Ü/;
-	#$wert=~s/Ã\237/ß/;
-	#$wert=~s/Ã¶/ö/;
-	#$wert=~s/Ã¼/ü/;
-	#$wert=~s/Ã¤/ä/;
+	# $string =~ s/ä/&auml;/;
+	# $wert=~s/Ã\204/Ä/;
 	$string =~ s/ü/%FC/g;
 	$string =~ s/ö/%F6/g;
 	$string =~ s/ä/%E4/g;
@@ -98,9 +75,9 @@ sub convert_char {
 	$string =~ s/Ä/%C4/g;
 	$string =~ s/ß/%DF/g;
 	$string =~ s/\s/+/g;
-	#$string = encode('iso-8859-1', $string);
-	# latin1 rüberkommen
-	#$string = uri_escape_utf8($string);
+	if ($string =~ /buecher/) {
+		print "";
+	}
 	return $string;
 }
 
@@ -121,7 +98,6 @@ sub login {
 	#my $cookie_jar = HTTP::Cookies->new();
 	my $cookie_jar = HTTP::Cookies->new(file => "$cookie_file", autosave => 1);
 	$cookie_jar->clear("web6.codeprobe.de");
-	#$cookie_jar->load($manuell_cookie);
 	$cookie_jar->load($cookie_booklooker);
 	$browser->cookie_jar($cookie_jar);
 	$browser->get($url);
@@ -136,10 +112,8 @@ sub login {
 		main::getstate;
 		$browser->click();
 		$cookie_jar->save($cookie_booklooker);
-		#$cookie_jar = HTTP::Cookies->new(file => "$cookie_file", autosave => 1);
 		print "Now logged in booklooker.de\n" if $self->is_logged_in;
 	}
-	#my $page_content = $browser->content();
 }
 
 sub is_logged_in {
@@ -163,23 +137,10 @@ sub is_logged_in {
 sub merkzettel {
 	my $self = shift;
 	$browser->follow_link(text=>'Merkzettel');
-	#my $tp = HTML::TokeParser->new(file=>"f:\\Users\\d-nnis\\BL_Merkzettel.html"|| die "Can't open: $!");
-	#my $tp = HTML::TokeParser->new(doc => \$browser->content);
 	my $content = $browser->content;
-	#$tp = HTML::TokeParser->new(doc => \$browser->content);
 	main::getstate;
 	%{$self->{buecher}} = ();
 	$self->tokeparse_titel;
-#	while (my $token = $tp->get_tag("span")) {
-#		# ein Buch
-#		next unless $token->[1]{class} eq 'artikeltitel'; 
-#		my $text_titel = $tp->get_trimmed_text("/span");
-#		${$self->{buecher}}{$text_titel}{autor} = $tp->get_trimmed_text("br"); # Autor 
-#		${$self->{buecher}}{$text_titel}{verlag} = $tp->get_trimmed_text("br/");
-#		${$self->{buecher}}{$text_titel}{zustand} = $tp->get_trimmed_text("/td");
-#		${$self->{buecher}}{$text_titel}{preis} = $tp->get_trimmed_text("br/");
-#		${$self->{buecher}}{$text_titel}{porto} = $tp->get_trimmed_text("br");
-#	}
 }
 
 sub tokeparse_titel {
@@ -190,19 +151,12 @@ sub tokeparse_titel {
 		# ein Buch
 		next unless $token->[1]{class} eq 'artikeltitel'; 
 		my $text_titel = $tp->get_trimmed_text("/span");
-		#${$self->{buecher}}{$text_titel}{autor} = $tp->get_trimmed_text("br"); # Autor 
-		#${$self->{buecher}}{$text_titel}{verlag} = $tp->get_trimmed_text("br/");
-		#${$self->{buecher}}{$text_titel}{zustand} = $tp->get_trimmed_text("/td");
-		#${$self->{buecher}}{$text_titel}{preis} = $tp->get_trimmed_text("br/");
-		#${$self->{buecher}}{$text_titel}{porto} = $tp->get_trimmed_text("br");
 		$buecher{$text_titel}{autor} = $tp->get_trimmed_text("br"); # Autor 
 		$buecher{$text_titel}{verlag} = $tp->get_trimmed_text("br/");
 		$buecher{$text_titel}{zustand} = $tp->get_trimmed_text("/td");
 		$buecher{$text_titel}{preis} = $tp->get_trimmed_text("br/");
 		$buecher{$text_titel}{porto} = $tp->get_trimmed_text("br");
 		%{$self->{buecher}} = (%{$self->{buecher}}, %buecher);
-		#return %buecher;
-		print "";
 	}
 }
 
@@ -210,7 +164,6 @@ sub suche_titel {
 	my $self = shift;
 	my $titel = shift;
 	$self->{treffer} = 0;
-	#$browser->get("https://secure.booklooker.de/app/search.php");
 	# https://secure.booklooker.de/app/result.php?token=0059526311&mediaType=0&sortOrder=&js_state=on&autocomplete=off&message=&autor=autor%FC%F6%E4%DC%D6%C4%DFautor&titel=titel%FC%F6%E4%DC%D6%C4%DFtitel&infotext=&verlag=&isbn=&year_from=&year_to=&sprache=&einbandCategory=&price_min=&price_max=&searchUserTyp=0&land=&datefrom=&oldBooks=on&newBooks=on&x=0&y=0
 	my $url_prefix = 'https://secure.booklooker.de/app/result.php?token=0059526311&mediaType=0&sortOrder=&js_state=on&autocomplete=off&message=&autor=';
 	my $url_autor = main::convert_char(${$self->{buecher}}{$titel}{autor});
@@ -219,11 +172,6 @@ sub suche_titel {
 	my $url_postfix = '&infotext=&verlag=&isbn=&year_from=&year_to=&sprache=&einbandCategory=&price_min=&price_max=&searchUserTyp=0&land=&datefrom=&oldBooks=on&newBooks=on&x=0&y=0';
 	my $url = $url_prefix.$url_autor.$url_infix.$url_titel.$url_postfix;
 	$browser->get($url);
-	
-	#$browser->form_name('eingabe');;
-	#$browser->field(titel=>main::convert_char($titel));
-	#$browser->field(autor=>main::convert_char($autor));
-	#$browser->click();
 	# Treffer?
 	if ( $browser->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {	# kein Treffer für den Titel
 		main::getstate;
@@ -238,10 +186,8 @@ sub suche_titel {
 	if ($browser->find_link(text=>'50')) {
 		$browser->follow_link(text=>'50');
 		main::getstate();		
-		
 	}
 	main::tp_content;
-	#while (my $token = ($tp->get_tag("td"))->[1]{class} ) {
 	while (my $token = $tp->get_tag("td")) {
 		my $att = $token->[1]{class};
 		next unless $att eq 'resultlist_count';
@@ -250,14 +196,12 @@ sub suche_titel {
 		${$self->{buecher}}{$titel}{treffer} = $1;
 		last;
 	}
-	print "";
 }
 
 sub sammel_verk {
 	my $self = shift;
 	my $titel = shift;
 	my %verk_liste;
-	# leere liste drauf gepusht
 	my $verk_gesammelt_0 = 0;	# Ergebnisse, Ebene 0
 	my $verk_gesammelt_1 = 0;	# Ergebnisse, Ebene 1
 	main::tp_content;
@@ -265,7 +209,7 @@ sub sammel_verk {
 	my $offerers = 0;
 	while (($verk_gesammelt_0 + $verk_gesammelt_1) < $self->{verk_n}) {
 		# folge dem Angebot
-		# links exists!?	
+		# link exists!?	
 		my $link_found = $browser->find_link(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
 		# ersetzen mit:
 		my $link = WWW::Mechanize::Link->new(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
@@ -289,41 +233,37 @@ sub sammel_verk {
 			## Verkäufernamen
 			## zähle Verkäufer
 			#$browser->find_all_links(tag=>"a", attrs=>{class});
+			# *
 			my $parser = MyParser->new();
-			my $sellerinfos = $parser->parse();
-			##
-			while (my $token3 = $tp->get_tag("td")) {
-				next unless $token3->[1]{class} eq "sellerinfo";
-				my $text = $tp->get_trimmed_text("/td");
-				$text =~ /von\s(.+)/;
-				$verk_liste{$1}=1;
-				#$self->{verk_liste}{$text_verk}=$uID;
-				# keine uID hier! erst im nächsten Schritt:
-				
-				$self->{verk_liste}{$1}=1;
+			my $seller_number = $parser->parse();
+			while ($verk_gesammelt_1 < $seller_number) {
+				$browser->follow_link(n=>$verk_gesammelt_1+1);
+				my ($text_verk, $uID) = $self->get_userprofile();
+				$self->{verk_liste}{$text_verk}=$uID;
 				$verk_gesammelt_1++;
 				last if ($self->{verk_n}) => $verk_gesammelt_0 + $verk_gesammelt_1;
-				# <td class="sellerinfo">
-				# =~ /von <a href.+\>(.+)<\\a>/
-				# </td>
-				# Fall: Ende der Verkäuferliste
-				# mech->back!?
-				# $offerers = 0 wann?
+				$browser->get_back;				
 			}
+			# <td class="sellerinfo">
+			# =~ /von <a href.+\>(.+)<\\a>/
+			# </td>
+			# Fall: Ende der Verkäuferliste
+			# $offerers = 0 wann?
 		} else {
 			## a) ein Artikel
 			## Verkäufernamen
-			main::tp_content;
-			my $text_verk;
-			my $uID;
-			while (my $token3 = $tp->get_tag("a")) {
-				my $attrdesc = $token3->[1]{href};
-				next unless ($attrdesc =~ /profileuID=(\d+)/);
-				$uID=$1;
-				$text_verk = $tp->get_trimmed_text("/a");
-				next if $text_verk =~ /Benutzer-Profil/;
-				last;
-			}
+#			main::tp_content;
+#			my $text_verk;
+#			my $uID;
+#			while (my $token3 = $tp->get_tag("a")) {
+#				my $attrdesc = $token3->[1]{href};
+#				next unless ($attrdesc =~ /profileuID=(\d+)/);
+#				$uID=$1;
+#				$text_verk = $tp->get_trimmed_text("/a");
+#				next if $text_verk =~ /Benutzer-Profil/;
+#				last;
+#			}
+			my ($text_verk, $uID) = $self->get_userprofile();
 			$self->{verk_liste}{$text_verk}=$uID;
 			#{Steinberger Hof}=231232
 			print "match:--$text_verk--\n"; 
@@ -334,6 +274,22 @@ sub sammel_verk {
 		}
 	}
 	#return %verk_liste;
+}
+
+sub get_userprofile {
+	my $self = shift;
+	main::tp_content;
+	my $text_verk;
+	my $uID;
+	while (my $token = $tp->get_tag("a")) {
+		my $attrdesc = $token->[1]{href};
+		next unless ($attrdesc =~ /profileuID=(\d+)/);
+		$uID=$1;
+		$text_verk = $tp->get_trimmed_text("/a");
+		next if $text_verk =~ /Benutzer-Profil/;
+		last;
+	}
+	return ($text_verk, $uID);
 }
 
 sub suche_verk_buecher {
@@ -417,39 +373,13 @@ sub tp_content {
 }
 
 package MyParser;
-
-# This parser only looks at opening tags
-# start: Handler for the event 'start' METHODS -> Events
-# tagname: argspec identifier 'tagname' (METHODS -> Argspec)
-#sub start { 
-#	my ($self, $tagname, $attr, $attrseq, $origtext) = @_;
-#	#print @_,"\n";
-#	given ($tagname) {
-#		when (/a/) {
-#			#print "a: Schluessel: ", keys %$attr, "\n";
-#		}
-#		when (/tr/) {
-#			if ($attr->{class} && $attr->{class} eq 'resultlist_productsproduct') {
-#				my $tee = $self->text();
-#				print "";
-#				print "tr: Schluessel: ", keys %$attr, "\n";
-#				print "class: ", $attr->{class}, "\n";
-#				print "content: ", $attr->{content}, "\n";
-#			}
-#
-#		}			
-#	}
-#}
-#
-#sub text {
-#	my ($self, $wtf) = @_;
-#	print ""; #$wtf;
-#}
+use base qw(HTML::Parser);
+use LWP::Simple ();
 
 ## new
 
 sub start {
-	my $sellerinfos = 0;
+	my $seller_number = 0;
 	my ($self, $tagname, $attr, $attrseq, $origtext) = @_;
 	given ($tagname) {
 		when ("td") {
@@ -459,12 +389,12 @@ sub start {
 				print "tr: Schluessel: ", keys %$attr, "\n";
 				print "class: ", $attr->{class}, "\n";
 				print "content: ", $attr->{content}, "\n";
-				$sellerinfos++;
+				$seller_number++;
 			}
 
 		}
 	}
-	return $sellerinfos;
+	return $seller_number;
 }
 
 sub text {
