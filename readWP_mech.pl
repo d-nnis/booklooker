@@ -7,7 +7,7 @@ use feature qw/switch/;
 use HTML::PullParser;
 use HTML::TokeParser;
 use base qw(HTML::Parser);
-use bytes;
+use utf8;
 no utf8;
 use Encode;
 use URI::Escape;
@@ -27,20 +27,8 @@ my $manuell_cookie = "f:\\Users\\d-nnis\\bookl_cookie_manuell.txt";
 my $username = $config{uname};
 my $password = $config{pwd};
 
-
 my $browser = WWW::Mechanize->new();
 my $tp = HTML::TokeParser->new(doc => \$browser->content);
-
-
-
-# encoding
-my $str = uri_escape_utf8(encode('utf8', 'ASÄÖÜßäöü'));
-my $str1 = encode('iso-8859-1','ASÄÖÜßäöü');
-my $str2 = decode('iso-8859-1', 'ASÄÖÜßäöü');
-#print $str,"\n";
-print uri_escape_utf8($str1),"\n";
-print uri_escape_utf8($str2);
-#
 
 my $bookl=Booklooker->new;
 $bookl->login;
@@ -56,11 +44,11 @@ foreach my $titel (keys %{$bookl->{buecher}}) {
 #		next;
 #	}
 	# pro buch die ersten n ( $bookl->{verk_n} ) Verkäufer heraus suchen
-	%verk_liste = (%verk_liste, $bookl->sammel_verk($titel));
-	#-> $bookl->{verk};
+	$bookl->sammel_verk($titel);
+	#-> $bookl->{verk_liste};
 }
 #
-foreach my $verk (keys %verk_liste) {
+foreach my $verk (keys %{$bookl->{verk_liste}}) {
 	$bookl->suche_verk_buecher($verk);
 }
 
@@ -102,10 +90,17 @@ sub convert_char {
 	#$wert=~s/Ã¶/ö/;
 	#$wert=~s/Ã¼/ü/;
 	#$wert=~s/Ã¤/ä/;
-	
-	#$string =~s /ß/%DF/;
-	#$string = uri_escape_utf8(encode('iso-8859-1', $string));
-	$string = uri_unescape_utf8($string);
+	$string =~ s/ü/%FC/g;
+	$string =~ s/ö/%F6/g;
+	$string =~ s/ä/%E4/g;
+	$string =~ s/Ü/%DC/g;
+	$string =~ s/Ö/%D6/g;
+	$string =~ s/Ä/%C4/g;
+	$string =~ s/ß/%DF/g;
+	$string =~ s/\s/+/g;
+	#$string = encode('iso-8859-1', $string);
+	# latin1 rüberkommen
+	#$string = uri_escape_utf8($string);
 	return $string;
 }
 
@@ -215,13 +210,20 @@ sub suche_titel {
 	my $self = shift;
 	my $titel = shift;
 	$self->{treffer} = 0;
-	$browser->get("https://secure.booklooker.de/app/search.php");
-	$browser->form_name('eingabe');
-	#$browser->field(titel=>$titel);
-	$browser->field(titel=>main::convert_char($titel));
-	my $autor = ${$self->{buecher}}{$titel}{autor};
-	$browser->field(autor=>main::convert_char($autor));
-	$browser->click();
+	#$browser->get("https://secure.booklooker.de/app/search.php");
+	# https://secure.booklooker.de/app/result.php?token=0059526311&mediaType=0&sortOrder=&js_state=on&autocomplete=off&message=&autor=autor%FC%F6%E4%DC%D6%C4%DFautor&titel=titel%FC%F6%E4%DC%D6%C4%DFtitel&infotext=&verlag=&isbn=&year_from=&year_to=&sprache=&einbandCategory=&price_min=&price_max=&searchUserTyp=0&land=&datefrom=&oldBooks=on&newBooks=on&x=0&y=0
+	my $url_prefix = 'https://secure.booklooker.de/app/result.php?token=0059526311&mediaType=0&sortOrder=&js_state=on&autocomplete=off&message=&autor=';
+	my $url_autor = main::convert_char(${$self->{buecher}}{$titel}{autor});
+	my $url_infix = '&titel=';
+	my $url_titel = main::convert_char($titel);
+	my $url_postfix = '&infotext=&verlag=&isbn=&year_from=&year_to=&sprache=&einbandCategory=&price_min=&price_max=&searchUserTyp=0&land=&datefrom=&oldBooks=on&newBooks=on&x=0&y=0';
+	my $url = $url_prefix.$url_autor.$url_infix.$url_titel.$url_postfix;
+	$browser->get($url);
+	
+	#$browser->form_name('eingabe');;
+	#$browser->field(titel=>main::convert_char($titel));
+	#$browser->field(autor=>main::convert_char($autor));
+	#$browser->click();
 	# Treffer?
 	if ( $browser->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {	# kein Treffer für den Titel
 		main::getstate;
@@ -254,7 +256,6 @@ sub suche_titel {
 sub sammel_verk {
 	my $self = shift;
 	my $titel = shift;
-	$titel = main::convert_char($titel);
 	my %verk_liste;
 	# leere liste drauf gepusht
 	my $verk_gesammelt_0 = 0;	# Ergebnisse, Ebene 0
@@ -275,15 +276,6 @@ sub sammel_verk {
 		}
 		# hinweis auf gefundene bücher i.e. follow_link-fault?
 		# follow_link(url=>'http')
-		# Spaß ->  SpaÃŸ
-		# Wölfisch für Hundehalter -> WÃ¶lfisch fÃ¼r Hundehalter
-		############
-
-   my @vorlage = (
-        ['ä',      'ö',      'ü',      'Ä',      'Ö',      'Ü',      'ß'],
-        ['&auml;', '&ouml;', '&uuml;', '&Auml;', '&Ouml;', '&Uuml;', '&szlig;']
-    );
-		############
 		$browser->follow_link(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
 		# ersetzen mit: $browser->follow_link($found_link); oder $browser->follow_link($link); 
 		main::tp_content;
@@ -305,6 +297,10 @@ sub sammel_verk {
 				my $text = $tp->get_trimmed_text("/td");
 				$text =~ /von\s(.+)/;
 				$verk_liste{$1}=1;
+				#$self->{verk_liste}{$text_verk}=$uID;
+				# keine uID hier! erst im nächsten Schritt:
+				
+				$self->{verk_liste}{$1}=1;
 				$verk_gesammelt_1++;
 				last if ($self->{verk_n}) => $verk_gesammelt_0 + $verk_gesammelt_1;
 				# <td class="sellerinfo">
@@ -317,35 +313,19 @@ sub sammel_verk {
 		} else {
 			## a) ein Artikel
 			## Verkäufernamen
-			#my $con = $browser->content;
-			#File::writefile("con.html", $con);
-			
-			#$browser->content =~ />([\w\s]+)<\/a>\s+| Dieser Artikel wurde bereits/;
-			
 			main::tp_content;
-			my $text;
-#			while (my $token3 = $tp->get_tag("table")) {
-#				next unless $token3->[1]{id} eq "seller";
-#				$text = $tp->get_trimmed_text("/a");
-#				last;
-#			}
-			# <a href="/app/profile.php?profileuID=3326905" >&Auml;ndi</a>
-			# NOT: <a href="/app/profile.php?profileuID=3326905" >&gt;&gt; Benutzer-Profil  anzeigen</a><br>
-			
 			my $text_verk;
+			my $uID;
 			while (my $token3 = $tp->get_tag("a")) {
 				my $attrdesc = $token3->[1]{href};
-				next unless $attrdesc =~ /profileuID/;
+				next unless ($attrdesc =~ /profileuID=(\d+)/);
+				$uID=$1;
 				$text_verk = $tp->get_trimmed_text("/a");
 				next if $text_verk =~ /Benutzer-Profil/;
 				last;
 			}
-			# suche verk
-			# table id ="seller"
-			# Verkäufer/in: (buecher.de)
-			# </a>
-			$text =~ /Verkäufer\/in(\w\s)+/;
-			$verk_liste{$text_verk}=1;
+			$self->{verk_liste}{$text_verk}=$uID;
+			#{Steinberger Hof}=231232
 			print "match:--$text_verk--\n"; 
 			$verk_gesammelt_0++;
 			$browser->back();
@@ -353,25 +333,52 @@ sub sammel_verk {
 			print "";
 		}
 	}
-	return %verk_liste;
+	#return %verk_liste;
 }
 
 sub suche_verk_buecher {
 	my $self = shift;
 	my $verk = shift;
+	my $uID = ${$self->{verk_liste}}{$verk};
 	$browser->get("https://secure.booklooker.de/app/search.php");
 	foreach my $titel (keys %{$self->{buecher}}) {
-		$browser->form_name("eingabe");
-		$browser->field(searchUsername=>main::convert_char($verk));
-		$browser->click();
+		my @url;
+		$url[0] = 'https://secure.booklooker.de/app/search_user.php?searchUsername=';
+		$url[1] = main::convert_char($verk);
+		$url[2] = '&x=0&y=0';
+		my $url = join '',@url; 
+		$browser->get($url);
+		#https://secure.booklooker.de/app/search_user.php?searchUsername=
+		#Steinberger+Hof
+		#&x=0&y=0
+		#$browser->form_name("eingabe");
+		#$browser->field(searchUsername=>main::convert_char($verk));
+		#$browser->click();
 		main::getstate;
 		# Profil von Verkäufer
 		$browser->follow_link(text_regex=>qr/\d+ Bücher/);
 		main::getstate;
 		# Suchformular mit Verkäufer
-		$browser->form_name("eingabe");
-		$browser->field(autor=>main::convert_char(${$self->{buecher}{$titel}}));
-		$browser->field(titel=>main::conver_char($titel));
+		my @url2;
+		push @url2, 'https://secure.booklooker.de/app/result.php?sortOrder=preis_euro&setMediaType=0&autor=';
+		push @url2, main::convert_char(${$self->{buecher}{$titel}}{autor});
+		push @url2, '&verlag=&isbn=&sprache=&einbandCategory=&einband=&titel='; 
+		push @url2, main::convert_char($titel);
+		push @url2, '&infotext=&year_from=&year_to=&sparteID=&sparte1ID=&showAlluID=';
+		push @url2, $uID;
+		push @url2, '&cheapie=&price_min=&price_max=&datefrom=&searchUserTyp=0&land=&lfdnr=&hasPic=&onlySwiss=&message=&newBooks=on&oldBooks=on&';
+		my $url2 = join '', @url2;
+		#https://secure.booklooker.de/app/result.php?sortOrder=preis_euro&setMediaType=0&autor=
+		#Thomas+Anders
+		#&verlag=&isbn=&sprache=&einbandCategory=&einband=&titel=
+		#100+Prozent+Anders
+		#&infotext=&year_from=&year_to=&sparteID=&sparte1ID=&showAlluID=
+		#3253529
+		#&cheapie=&price_min=&price_max=&datefrom=&searchUserTyp=0&land=&lfdnr=&hasPic=&onlySwiss=&message=&newBooks=on&oldBooks=on&
+		
+		#$browser->form_name("eingabe");
+		#$browser->field(autor=>main::convert_char(${$self->{buecher}{$titel}}));
+		#$browser->field(titel=>main::conver_char($titel));
 		main::getstate;
 		$browser->click();
 		main::getstate;
