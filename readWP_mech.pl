@@ -81,9 +81,9 @@ sub convert_char {
 sub field_iso {
 	my $string = shift;
 	#$string = convert_char($string);
-	#$string = uri_escape_utf8(encode('iso-8859-1', $string));
 	#$string = encode('iso-8859-1', $string);
-	$string = uri_escape_utf8($string);
+	#$string = uri_escape_utf8($string);
+	$string = uri_escape_utf8(encode('iso-8859-1', $string));
 	return $string;
 }
 
@@ -171,15 +171,15 @@ sub suche_titel {
 	my $titel = shift;
 	$self->{treffer} = 0;
 	
-	# Suche mit field
-	$browser->get("https://secure.booklooker.de/app/search.php");
-	$browser->form_name('eingabe');
-	#$browser->field(titel=>$titel);
-	$browser->field(titel=>main::field_iso($titel));
-	my $autor = ${$self->{buecher}}{$titel}{autor};
-	$browser->field(autor=>main::field_iso($autor));
-	$browser->click();
-	main::getstate;
+	## Suche mit field - funzt nicht
+#	$browser->get("https://secure.booklooker.de/app/search.php");
+#	$browser->form_name('eingabe');
+#	#$browser->field(titel=>$titel);
+#	$browser->field(titel=>main::field_iso($titel));
+#	my $autor = ${$self->{buecher}}{$titel}{autor};
+#	$browser->field(autor=>main::field_iso($autor));
+#	$browser->click();
+#	main::getstate;
 	
 	
 	# https://secure.booklooker.de/app/result.php?token=0059526311&mediaType=0&sortOrder=&js_state=on&autocomplete=off&message=&autor=autor%FC%F6%E4%DC%D6%C4%DFautor&titel=titel%FC%F6%E4%DC%D6%C4%DFtitel&infotext=&verlag=&isbn=&year_from=&year_to=&sprache=&einbandCategory=&price_min=&price_max=&searchUserTyp=0&land=&datefrom=&oldBooks=on&newBooks=on&x=0&y=0
