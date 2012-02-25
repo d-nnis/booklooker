@@ -470,10 +470,10 @@ sub export_csv {
 		# titel1, titel2, titel3 ...		
 		foreach my $titel (@titel) {
 			# Zeilen
-			#my @titel_verk = @{$self->{verk_liste}{$verk}{titel}};
+			my @titel_verk = @{$self->{verk_liste}{$verk}{titel}};
 			my $t = $self->{verk_liste}{$verk}{titel};
 			my @tee = @$t; 
-			if (grep {$titel eq $_} @$t ) {	# existiert gesuchter Titel in der Titel-Liste des Verkäufers?
+			if (grep {$titel eq $_} @titel_verk ) {	# existiert gesuchter Titel in der Titel-Liste des Verkäufers?
 				$line = $line . $titel . ",";
 			} else {
 				$line = $line . "-,";
