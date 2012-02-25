@@ -12,7 +12,7 @@ use utf8;
 no utf8;
 use Encode;
 use URI::Escape;
-$| = 1;
+$|=1;
 
 my %config = File::readfile("..\\_excl\\login.csv",'config');
 
@@ -37,18 +37,12 @@ my $bookl=Booklooker->new;
 $bookl->login;
 $bookl->merkzettel;
 # liste: n verkäufer pro buch
-$bookl->{verk_n} = 2;
+$bookl->{verk_n} = 5;
 my %verk_liste = ();
 foreach my $titel (keys %{$bookl->{buecher}}) {
 	# rufe suche auf
 	$bookl->suche_titel($titel);
-#	if ($bookl->{treffer} == 0) {
-#		# vermerk dafür?
-#		next;
-#	}
-	# pro buch die ersten n ( $bookl->{verk_n} ) Verkäufer heraus suchen
 	$bookl->sammel_verk($titel);
-	#-> $bookl->{verk_liste};
 }
 
 foreach my $verk (keys %{$bookl->{verk_liste}}) {
@@ -108,8 +102,6 @@ sub new {
 	my $class = shift;
 	my $self = {};
 	bless ($self, $class);
-	# mech nur package-intern sichtbar
-	#$self->{mech} = WWW::Mechanize->new();
 	return $self;
 }
 
@@ -227,7 +219,6 @@ sub sammel_verk {
 		my $attrdesc = $tokenX->[1]{href};
 		my $target_titel = $tp->get_trimmed_text("/a");
 		if ($target_titel =~ /$titel/) {
-			#my ($url) = $attrdesc =~ /(\/app\/detail\.php\?id=.+)/;
 			my $url;
 			if ($attrdesc =~ /(\/app\/detail\.php\?id=.+)/) {
 				$url = $1;
@@ -241,24 +232,8 @@ sub sammel_verk {
 			}
 		}
 	}
-	##
 	while (($verk_gesammelt_0 + $verk_gesammelt_1) < $self->{verk_n}) {
 		# folge dem Angebot
-		# link exists!?	
-		#my $link_found = $browser->find_link(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
-		# ersetzen durch:
-		# finde span class artikeltitel -> url(a href)
-		while (my $token = $tp->get_tag("span")) {
-			next unless $token->[1]{class} eq 'artikeltitel';
-			#my $url_text = $tp->get_phrase;
-			#my $ntoken = $tp->get_token;
-			print "";
-		}
-#		unless ($link_found) {
-#			main::getstate;
-#			last;
-#		}
-#		my $url = $link_found->url();
 		last if (scalar @found_links) < ($verk_gesammelt_0+1); 
 		my $url = $found_links[$verk_gesammelt_0];
 		unless ($browser->get($url)) {
@@ -277,11 +252,6 @@ sub sammel_verk {
 			my $parser = MyParser->new();
 			my $parse_object = $parser->parse($browser->content);
 			my $seller_number = ${$parse_object}{seller_number};
-## example	
-#<td class="sellerinfo">
-#									<a href="/app/detail.php?id=A0168TH40dlTd00ZZl&setMediaType=0"><img style="margin: 3px; border: 0;" align="left" src="https://images.booklooker.de/isbn_thumb/9783440122648/cover.jpg"></a>
-#													von <a href="/app/detail.php?id=A0168TH40dlTd00ZZl&setMediaType=0">Bücherinsel</a><br/>
-#
 			# alle Verkäufer via td class="sellerinfo" sammeln
 			main::tp_content;
 			my @verk_liste_offerers;
@@ -328,8 +298,6 @@ sub sammel_verk {
 			#{Steinberger Hof}=231232
 			$verk_gesammelt_0++;
 			$browser->back();
-#			main::getstate;
-#			print "";
 		}
 	}
 }
@@ -378,9 +346,6 @@ sub suche_verk_buecher {
 	my $verk = shift;
 	my $titel;
 	my $uID = ${$self->{verk_liste}}{$verk}{uID};
-	$| = 1;
-	print "Verkaeufer $verk: ";
-	$| = 1;
 	$browser->get("https://secure.booklooker.de/app/search.php");
 	foreach $titel (keys %{$self->{buecher}}) {
 		# Suchformular mit Verkäufer
@@ -408,28 +373,14 @@ sub suche_verk_buecher {
 		while (my $token = $tp->get_tag("span")) {
 			next unless $token->[1]{class} eq 'artikeltitel';
 			my $text_titel = $tp->get_trimmed_text("/span");
-			##$self->{verk_liste}{Pferd}{Wilson}="tee";
-			##$self->{verk_buecher}{$verk} = $text_titel;
-			##$self->{verk_buecher}{$verk}{titel} = $text_titel;
-			#oder: $self->{verk_buecher}{$verk}{$text_titel}{autor} = $tp->get_trimmed_text("br"); # Autor
 			$self->{verk_buecher}{$verk}{$titel}{autor} = $tp->get_trimmed_text("br"); # Autor
-			#$self->{verk_buecher}{$verk}{titel}{autor} = $tp->get_trimmed_text("br"); # Autor
-			# ${$self->{verk_buecher}}{$verk}{autor} = $tp->get_trimmed_text("br"); # Autor
 			$self->{verk_buecher}{$verk}{$titel}{verlag} = $tp->get_trimmed_text("br/");
 			$self->{verk_buecher}{$verk}{$titel}{zustand} = $tp->get_trimmed_text("/td");
 			$self->{verk_buecher}{$verk}{$titel}{preis} = main::parse_betrag($tp->get_trimmed_text("br/"));
 			$self->{verk_buecher}{$verk}{$titel}{porto} = main::parse_betrag($tp->get_trimmed_text("br"));
-			$| = 1;
-			print "$text_titel, ";
-			$|=1;
-			
 		}
 		# keine titel
-		print "";
 	}
-	$| = 1;
-	print "\n";
-	$|=1;
 }
 
 # verk_liste{verk}->uID
@@ -439,9 +390,7 @@ sub suche_verk_buecher {
 sub uebersicht_verk_liste {
 	my $self = shift;
 	my $anzahl_titel;
-	print "keys", keys %{$self->{verk_buecher}},"\n";
 	foreach my $verk (keys %{$self->{verk_buecher}}) {
-		print "keys tite:", keys %{$self->{verk_buecher}{$verk}}, "\n";
 		my @titel = keys %{$self->{verk_buecher}{$verk}};
 		my $anzahl_titel = scalar @titel;
 		my $summe_preis = 0;
