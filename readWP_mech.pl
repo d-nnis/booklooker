@@ -439,18 +439,20 @@ sub suche_verk_buecher {
 sub uebersicht_verk_liste {
 	my $self = shift;
 	my $anzahl_titel;
-	my $summe_preis = 0;
 	print "keys", keys %{$self->{verk_buecher}},"\n";
 	foreach my $verk (keys %{$self->{verk_buecher}}) {
 		print "keys tite:", keys %{$self->{verk_buecher}{$verk}}, "\n";
 		my @titel = keys %{$self->{verk_buecher}{$verk}};
 		my $anzahl_titel = scalar @titel;
+		my $summe_preis = 0;
 		foreach (@titel) {
-			$summe_preis = $summe_preis + $self->{verk_buecher}{$verk}{$_}{preis};
+			my $preis_titel = ($self->{verk_buecher}{$verk}{$_}{preis}+0);
+			$summe_preis = $summe_preis + $preis_titel;
+			print "";
 		}
-		# $self->{verk_liste}{$verk}{uID};
 		$self->{verk_liste}{$verk}{anzahl_titel} = $anzahl_titel;
 		$self->{verk_liste}{$verk}{titel} = \@titel;
+		#$summe_preis = s/./,/;
 		$self->{verk_liste}{$verk}{summe_preis} = $summe_preis;
 	}
 }
@@ -460,28 +462,26 @@ sub export_csv {
 	my $export_file = shift;
 	my @titel = keys %{$self->{buecher}};
 	my @verk = keys %{$self->{verk_liste}};
-	# titel: ${$self->{buecher}}{$titel}
 	my $line;
 	my @matrix;
 	foreach my $verk (@verk) {
 		# Spalten
 		# Verk, Anzahl Titel
-		$line = Data::remove_ws($verk) . "," . $self->{verk_liste}{$verk}{anzahl_titel} . ",";
-		# titel1, titel2, titel3 ...		
+		$line = Data::remove_ws($verk) . ";" . $self->{verk_liste}{$verk}{anzahl_titel} . ";";
+		# titel1, titel2, titel3 ...
+		my @titel_verk = @{$self->{verk_liste}{$verk}{titel}};		
 		foreach my $titel (@titel) {
 			# Zeilen
-			my @titel_verk = @{$self->{verk_liste}{$verk}{titel}};
-			my $t = $self->{verk_liste}{$verk}{titel};
-			my @tee = @$t; 
 			if (grep {$titel eq $_} @titel_verk ) {	# existiert gesuchter Titel in der Titel-Liste des Verkäufers?
-				$line = $line . $titel . ",";
+				$line = $line . $titel . ";";
 			} else {
-				$line = $line . "-,";
+				$line = $line . "-;";
 			}
 		}
 		$line = $line . $self->{verk_liste}{$verk}{summe_preis} . "\n";
 		push @matrix, $line;
 	}
+	unshift @matrix, ";;" . (join ";", @titel) . "\n";
 	File::writefile_count($export_file, @matrix);
 	#titel,verk,anzhal_titel,summe_preis
 	# ,titel1,titel2,...
@@ -496,27 +496,12 @@ sub tp_content {
 
 package MyParser;
 use base qw(HTML::Parser);
-#use LWP::Simple ();
-
-## new
 
 sub start {
 	my ($self, $tagname, $attr, $attrseq, $origtext) = @_;
 	given ($tagname) {
 		when ("td") {
 			if ($attr->{class} eq "sellerinfo") {
-				#my $tee = $self->text();
-				#$self->{collect_text} = 1;
-#				print "";
-#				print "tr: Schluessel: ", keys %$attr, "\n";
-#				print "class: ", $attr->{class}, "\n";
-#				print "content: ", $attr->{content}, "\n";
-#				print "origtext: $origtext\n";
-#				print "Text: \n";
-#				foreach my $text (@{$self->{text}}) {
-#					print $text,",";
-#				}
-#				print "-\n";
 				$self->{seller_number}++;
 			}
 		}
@@ -525,18 +510,9 @@ sub start {
 }
 
 sub end {
-#	my ($self, $tag, $origtext) = @_;
-#	given ($tag) {
-#		when ("br") {
-#			print "origtext $origtext\n";
-#			$self->{collect_text} = 0;
-#		}
-#	}
+
 }
 
 sub text {
-#	my $self = shift;
-#	if ($self->{collect_text}) {
-#		push @{$self->{text}}, @_;
-#	}	
+
 }
