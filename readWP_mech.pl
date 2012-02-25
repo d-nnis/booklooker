@@ -37,7 +37,7 @@ my $bookl=Booklooker->new;
 $bookl->login;
 $bookl->merkzettel;
 # liste: n verkäufer pro buch
-$bookl->{verk_n} = 3;
+$bookl->{verk_n} = 2;
 my %verk_liste = ();
 foreach my $titel (keys %{$bookl->{buecher}}) {
 	# rufe suche auf
@@ -54,11 +54,6 @@ foreach my $titel (keys %{$bookl->{buecher}}) {
 foreach my $verk (keys %{$bookl->{verk_liste}}) {
 	$bookl->suche_verk_buecher($verk);
 }
-# $self->{verk_liste}{$verk}{uID};
-# $self->{verk_liste}{$verk}{anzahl_titel} = $anzahl_titel;
-# $self->{verk_liste}{$verk}{titel} = @titel;
-# $self->{verk_liste}{$verk}{summe_preis} = $summe_preis;
-
 
 $bookl->uebersicht_verk_liste;
 $bookl->export_csv($export_file);
@@ -226,20 +221,31 @@ sub sammel_verk {
 	my $verk_gesammelt_1 = 0;	# Ergebnisse, Ebene 1
 	main::tp_content;
 	my $offerers = 0;
+	## Links von Suchergebnis (Ebene 0) heraus parsen
+	my @found_links;
+	while (my $tokenX = $tp->get_tag("a")) {
+		my $attrdesc = $tokenX->[1]{href};
+		my $target_titel = $tp->get_trimmed_text("/a");
+		if ($target_titel =~ /$titel/) {
+			#my ($url) = $attrdesc =~ /(\/app\/detail\.php\?id=.+)/;
+			my $url;
+			if ($attrdesc =~ /(\/app\/detail\.php\?id=.+)/) {
+				$url = $1;
+				push @found_links, $url
+			} elsif ($attrdesc =~ /(\/app\/resultnew\.php\?id=.+)/) {
+				# /app/resultnew.php?id=1003853915&setMediaType=0
+				$url = $1;
+				push @found_links, $url
+			} else {
+ 
+			}
+		}
+	}
+	##
 	while (($verk_gesammelt_0 + $verk_gesammelt_1) < $self->{verk_n}) {
 		# folge dem Angebot
 		# link exists!?	
 		#my $link_found = $browser->find_link(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
-		
-		my @found_links;
-		while (my $tokenX = $tp->get_tag("a")) {
-			my $attrdesc = $tokenX->[1]{href};
-			my $target_titel = $tp->get_trimmed_text("/a");
-			if ($target_titel =~ /$titel/) {
-				my ($url) = $attrdesc =~ /(\/app\/detail\.php\?id=.+)/;
-				push @found_links, $url;
-			}
-		}
 		# ersetzen durch:
 		# finde span class artikeltitel -> url(a href)
 		while (my $token = $tp->get_tag("span")) {
@@ -253,6 +259,7 @@ sub sammel_verk {
 #			last;
 #		}
 #		my $url = $link_found->url();
+		last if (scalar @found_links) < ($verk_gesammelt_0+1); 
 		my $url = $found_links[$verk_gesammelt_0];
 		unless ($browser->get($url)) {
 			main::getstate;
@@ -303,7 +310,6 @@ sub sammel_verk {
 				}
 				# oder: find_link mit text aus @verk_liste_offerers
 			}
-			
 			# für jeden Verkäufer die uID von Profile-Seite holen
 			foreach my $verk_url (@verk_liste_offerers_url) {
 				$browser->get($verk_url);
@@ -322,8 +328,8 @@ sub sammel_verk {
 			#{Steinberger Hof}=231232
 			$verk_gesammelt_0++;
 			$browser->back();
-			main::getstate;
-			print "";
+#			main::getstate;
+#			print "";
 		}
 	}
 }
@@ -436,6 +442,7 @@ sub uebersicht_verk_liste {
 	my $summe_preis = 0;
 	print "keys", keys %{$self->{verk_buecher}},"\n";
 	foreach my $verk (keys %{$self->{verk_buecher}}) {
+		print "keys tite:", keys %{$self->{verk_buecher}{$verk}}, "\n";
 		my @titel = keys %{$self->{verk_buecher}{$verk}};
 		my $anzahl_titel = scalar @titel;
 		foreach (@titel) {
@@ -443,7 +450,7 @@ sub uebersicht_verk_liste {
 		}
 		# $self->{verk_liste}{$verk}{uID};
 		$self->{verk_liste}{$verk}{anzahl_titel} = $anzahl_titel;
-		$self->{verk_liste}{$verk}{titel} = @titel;
+		$self->{verk_liste}{$verk}{titel} = \@titel;
 		$self->{verk_liste}{$verk}{summe_preis} = $summe_preis;
 	}
 }
@@ -463,9 +470,10 @@ sub export_csv {
 		# titel1, titel2, titel3 ...		
 		foreach my $titel (@titel) {
 			# Zeilen
-			my @titel_verk;
-			@titel_verk = @{$self->{verk_liste}{$verk}{titel}}; 
-			if (grep {$titel eq $_} @titel_verk) {	# existiert gesuchter Titel in der Titel-Liste des Verkäufers?
+			#my @titel_verk = @{$self->{verk_liste}{$verk}{titel}};
+			my $t = $self->{verk_liste}{$verk}{titel};
+			my @tee = @$t; 
+			if (grep {$titel eq $_} @$t ) {	# existiert gesuchter Titel in der Titel-Liste des Verkäufers?
 				$line = $line . $titel . ",";
 			} else {
 				$line = $line . "-,";
