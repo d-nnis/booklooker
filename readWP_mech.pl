@@ -12,6 +12,7 @@ use utf8;
 no utf8;
 use Encode;
 use URI::Escape;
+$| = 1;
 
 my %config = File::readfile("..\\_excl\\login.csv",'config');
 
@@ -185,18 +186,6 @@ sub suche_titel {
 	my $self = shift;
 	my $titel = shift;
 	$self->{treffer} = 0;
-	
-	## Suche mit field - funzt nicht
-#	$browser->get("https://secure.booklooker.de/app/search.php");
-#	$browser->form_name('eingabe');
-#	#$browser->field(titel=>$titel);
-#	$browser->field(titel=>main::field_iso($titel));
-#	my $autor = ${$self->{buecher}}{$titel}{autor};
-#	$browser->field(autor=>main::field_iso($autor));
-#	$browser->click();
-#	main::getstate;
-	
-	
 	# https://secure.booklooker.de/app/result.php?token=0059526311&mediaType=0&sortOrder=&js_state=on&autocomplete=off&message=&autor=autor%FC%F6%E4%DC%D6%C4%DFautor&titel=titel%FC%F6%E4%DC%D6%C4%DFtitel&infotext=&verlag=&isbn=&year_from=&year_to=&sprache=&einbandCategory=&price_min=&price_max=&searchUserTyp=0&land=&datefrom=&oldBooks=on&newBooks=on&x=0&y=0
 	my $url_prefix = 'https://secure.booklooker.de/app/result.php?token=0059526311&mediaType=0&sortOrder=&js_state=on&autocomplete=off&message=&autor=';
 	my $url_autor = main::convert_char(${$self->{buecher}}{$titel}{autor});
@@ -206,19 +195,17 @@ sub suche_titel {
 	my $url = $url_prefix.$url_autor.$url_infix.$url_titel.$url_postfix;
 	$browser->get($url);
 	# Treffer?
-	if ( $browser->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {	# kein Treffer für den Titel
-		main::getstate;
+	if ( $browser->content() =~ /<h1 class="headline_buch">Keine Treffer im Bereich/ ) {
+		# kein Treffer für den Titel
 		return;
 	}
 	# Sortierung nach Preis
-	main::getstate();
 	if ($browser->find_link('Preis')) {
 		$browser->follow_link(text=>'Preis');
 	}
 	# Anzeige auf 50 Titel vergrößern
 	if ($browser->find_link(text=>'50')) {
 		$browser->follow_link(text=>'50');
-		main::getstate();		
 	}
 	main::tp_content;
 	while (my $token = $tp->get_tag("td")) {
@@ -238,25 +225,40 @@ sub sammel_verk {
 	my $verk_gesammelt_0 = 0;	# Ergebnisse, Ebene 0
 	my $verk_gesammelt_1 = 0;	# Ergebnisse, Ebene 1
 	main::tp_content;
-	main::getstate;
 	my $offerers = 0;
 	while (($verk_gesammelt_0 + $verk_gesammelt_1) < $self->{verk_n}) {
 		# folge dem Angebot
 		# link exists!?	
-		my $link_found = $browser->find_link(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
-		# ersetzen mit:
-		my $link = WWW::Mechanize::Link->new(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
-		my $url = $link_found;
-		unless ($link_found) {
-			main::getstate;
-			last;
+		#my $link_found = $browser->find_link(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
+		
+		my @found_links;
+		while (my $tokenX = $tp->get_tag("a")) {
+			my $attrdesc = $tokenX->[1]{href};
+			my $target_titel = $tp->get_trimmed_text("/a");
+			if ($target_titel =~ /$titel/) {
+				my ($url) = $attrdesc =~ /(\/app\/detail\.php\?id=.+)/;
+				push @found_links, $url;
+			}
 		}
-		# hinweis auf gefundene bücher i.e. follow_link-fault?
-		# follow_link(url=>'http')
-		$browser->follow_link(text_regex=> qr/$titel/i, n=>$verk_gesammelt_0+1);
-		# ersetzen mit: $browser->follow_link($found_link); oder $browser->follow_link($link); 
+		# ersetzen durch:
+		# finde span class artikeltitel -> url(a href)
+		while (my $token = $tp->get_tag("span")) {
+			next unless $token->[1]{class} eq 'artikeltitel';
+			#my $url_text = $tp->get_phrase;
+			#my $ntoken = $tp->get_token;
+			print "";
+		}
+#		unless ($link_found) {
+#			main::getstate;
+#			last;
+#		}
+#		my $url = $link_found->url();
+		my $url = $found_links[$verk_gesammelt_0];
+		unless ($browser->get($url)) {
+			main::getstate;
+			print "";
+		}
 		main::tp_content;
-		main::getstate;
 		## Verkäufer oder Verkäuferliste?
 		while (my $token2 = $tp->get_tag("h2")) {
 			$offerers = 1 if $token2->[1]{class} eq 'offerers';
@@ -265,7 +267,6 @@ sub sammel_verk {
 			## b) Liste
 			## Verkäufernamen
 			## zähle Verkäufer
-			main::getstate;
 			my $parser = MyParser->new();
 			my $parse_object = $parser->parse($browser->content);
 			my $seller_number = ${$parse_object}{seller_number};
@@ -280,6 +281,7 @@ sub sammel_verk {
 			while (my $token3 = $tp->get_tag("td")) {
 				my $attrdesc = $token3->[1]{class};
 				next unless $attrdesc eq "sellerinfo";
+				# extract URL
 				my $text_verk_offerers = $tp->get_trimmed_text("br/");
 				$text_verk_offerers =~ /von\s([\w\s]+)/;
 				push @verk_liste_offerers, $1;
@@ -287,39 +289,79 @@ sub sammel_verk {
 				last if $verk_gesammelt_1 >= $seller_number;
 				last if ($self->{verk_n}) >= $verk_gesammelt_0 + $verk_gesammelt_1;
 			}
+			# Suche Link-Objekte (URL) für Verkäufer-Namen
+			my @verk_liste_offerers_object;
+			my @verk_liste_offerers_url;
+			main::tp_content;
+			while (my $token4 = $tp->get_tag("a")) {
+				my $attrdesc = $token4->[1]{href};
+				my $target_user = $tp->get_trimmed_text("/a");
+				my $url;
+				if (grep {$target_user eq $_} @verk_liste_offerers) {
+					($url) = $attrdesc =~ /(\/app\/detail\.php\?id=.+)/;
+					push @verk_liste_offerers_url, $url;
+				}
+				# oder: find_link mit text aus @verk_liste_offerers
+			}
+			
 			# für jeden Verkäufer die uID von Profile-Seite holen
-			foreach my $verk (@verk_liste_offerers) {
-				$browser->follow_link(text=>"$verk");
+			foreach my $verk_url (@verk_liste_offerers_url) {
+				$browser->get($verk_url);
+				# besser: link-Objekt
+				main::tp_content;
 				my ($text_verk, $uID) = $self->get_userprofile();
-				#$self->{verk_liste}{$text_verk}=$uID;
 				$self->{verk_liste}{$text_verk}{uID}=$uID;					
 				$browser->back;
 			}
 		} else {
 			## a) ein Artikel
 			## Verkäufernamen
+			main::tp_content;
 			my ($text_verk, $uID) = $self->get_userprofile();
 			$self->{verk_liste}{$text_verk}{uID}=$uID;
 			#{Steinberger Hof}=231232
 			$verk_gesammelt_0++;
 			$browser->back();
+			main::getstate;
+			print "";
 		}
 	}
-	#return %verk_liste;
 }
 
 sub get_userprofile {
 	my $self = shift;
-	main::tp_content;
 	my $text_verk;
 	my $uID;
 	while (my $token = $tp->get_tag("a")) {
 		my $attrdesc = $token->[1]{href};
-		next unless ($attrdesc =~ /profileuID=(\d+)/);
-		$uID=$1;
+		# next unless ($attrdesc =~ /profileuID=(\d+)/);	# funzt nicht??? Gibt '' weiter!?!?!?!
+		($uID) = $attrdesc =~ /profileuID=(\d+)/;
+		#next if $uID eq '';
+		next unless ($uID =~ /^\d+$/);
 		$text_verk = $tp->get_trimmed_text("/a");
 		next if $text_verk =~ /Benutzer-Profil/;
 		last;
+	}
+	
+	unless ($text_verk || $uID) {
+		main::getstate;
+		print "";		
+	}
+	unless ($text_verk =~ /\w+/) {
+		main::getstate;
+		print "";
+	}
+	unless ($uID =~ /\d+/) {
+		main::getstate;
+		print "";
+	}
+	if ($text_verk eq '') {
+		main::getstate;
+		print "";
+	}
+	if ($uID eq '') {
+		main::getstate;
+		print "";
 	}
 	return ($text_verk, $uID);
 }
@@ -328,25 +370,13 @@ sub get_userprofile {
 sub suche_verk_buecher {
 	my $self = shift;
 	my $verk = shift;
+	my $titel;
 	my $uID = ${$self->{verk_liste}}{$verk}{uID};
+	$| = 1;
+	print "Verkaeufer $verk: ";
+	$| = 1;
 	$browser->get("https://secure.booklooker.de/app/search.php");
-	foreach my $titel (keys %{$self->{buecher}}) {
-#		my @url;
-#		$url[0] = 'https://secure.booklooker.de/app/search_user.php?searchUsername=';
-#		$url[1] = main::convert_char($verk);
-#		$url[2] = '&x=0&y=0';
-#		my $url = join '',@url; 
-#		$browser->get($url);
-#		#https://secure.booklooker.de/app/search_user.php?searchUsername=
-#		#Steinberger+Hof
-#		#&x=0&y=0
-#		#$browser->form_name("eingabe");
-#		#$browser->field(searchUsername=>main::convert_char($verk));
-#		#$browser->click();
-#		main::getstate;
-#		# Profil von Verkäufer
-#		$browser->follow_link(text_regex=>qr/\d+ Bücher/);
-#		main::getstate;
+	foreach $titel (keys %{$self->{buecher}}) {
 		# Suchformular mit Verkäufer
 		my @url2;
 		push @url2, 'https://secure.booklooker.de/app/result.php?sortOrder=preis_euro&setMediaType=0&autor=';
@@ -364,30 +394,36 @@ sub suche_verk_buecher {
 		#&infotext=&year_from=&year_to=&sparteID=&sparte1ID=&showAlluID=
 		#3253529
 		#&cheapie=&price_min=&price_max=&datefrom=&searchUserTyp=0&land=&lfdnr=&hasPic=&onlySwiss=&message=&newBooks=on&oldBooks=on&
-		
-		#$browser->form_name("eingabe");
-		#$browser->field(autor=>main::convert_char(${$self->{buecher}{$titel}}));
-		#$browser->field(titel=>main::conver_char($titel));
-		#$browser->click();
+
 		$browser->get($url2);
-		main::getstate;
+		main::tp_content;
 		# Suchergebnis
 		my $treffer = 0;
 		while (my $token = $tp->get_tag("span")) {
 			next unless $token->[1]{class} eq 'artikeltitel';
-			$treffer = 1;
 			my $text_titel = $tp->get_trimmed_text("/span");
-			${$self->{verk_buecher}}{$verk}{titel} = $tp->get_trimmed_text("/span");
-			${$self->{verk_buecher}}{$verk}{titel}{autor} = $tp->get_trimmed_text("br"); # Autor
+			##$self->{verk_liste}{Pferd}{Wilson}="tee";
+			##$self->{verk_buecher}{$verk} = $text_titel;
+			##$self->{verk_buecher}{$verk}{titel} = $text_titel;
+			#oder: $self->{verk_buecher}{$verk}{$text_titel}{autor} = $tp->get_trimmed_text("br"); # Autor
+			$self->{verk_buecher}{$verk}{$titel}{autor} = $tp->get_trimmed_text("br"); # Autor
+			#$self->{verk_buecher}{$verk}{titel}{autor} = $tp->get_trimmed_text("br"); # Autor
 			# ${$self->{verk_buecher}}{$verk}{autor} = $tp->get_trimmed_text("br"); # Autor
-			${$self->{verk_buecher}}{$verk}{titel}{verlag} = $tp->get_trimmed_text("br/");
-			${$self->{verk_buecher}}{$verk}{titel}{zustand} = $tp->get_trimmed_text("/td");
-			${$self->{verk_buecher}}{$verk}{titel}{preis} = main::parse_betrag($tp->get_trimmed_text("br/"));
-			${$self->{verk_buecher}}{$verk}{titel}{porto} = main::parse_betrag($tp->get_trimmed_text("br"));
+			$self->{verk_buecher}{$verk}{$titel}{verlag} = $tp->get_trimmed_text("br/");
+			$self->{verk_buecher}{$verk}{$titel}{zustand} = $tp->get_trimmed_text("/td");
+			$self->{verk_buecher}{$verk}{$titel}{preis} = main::parse_betrag($tp->get_trimmed_text("br/"));
+			$self->{verk_buecher}{$verk}{$titel}{porto} = main::parse_betrag($tp->get_trimmed_text("br"));
+			$| = 1;
+			print "$text_titel, ";
+			$|=1;
+			
 		}
 		# keine titel
 		print "";
 	}
+	$| = 1;
+	print "\n";
+	$|=1;
 }
 
 # verk_liste{verk}->uID
@@ -398,21 +434,18 @@ sub uebersicht_verk_liste {
 	my $self = shift;
 	my $anzahl_titel;
 	my $summe_preis = 0;
-	print 4.5 + 2.1, "\n";
+	print "keys", keys %{$self->{verk_buecher}},"\n";
 	foreach my $verk (keys %{$self->{verk_buecher}}) {
-		my @titel = keys %{${$self->{verk_buecher}}{$verk}};
+		my @titel = keys %{$self->{verk_buecher}{$verk}};
 		my $anzahl_titel = scalar @titel;
 		foreach (@titel) {
-			$summe_preis = $summe_preis + ${$self->{verk_buecher}}{$verk}{$_}{preis};
+			$summe_preis = $summe_preis + $self->{verk_buecher}{$verk}{$_}{preis};
 		}
 		# $self->{verk_liste}{$verk}{uID};
 		$self->{verk_liste}{$verk}{anzahl_titel} = $anzahl_titel;
 		$self->{verk_liste}{$verk}{titel} = @titel;
 		$self->{verk_liste}{$verk}{summe_preis} = $summe_preis;
 	}
-	
-
-	
 }
 
 sub export_csv {
@@ -426,7 +459,7 @@ sub export_csv {
 	foreach my $verk (@verk) {
 		# Spalten
 		# Verk, Anzahl Titel
-		$line = Essent_BL::remove_ws($verk) . "," . ${$self->{verk_liste}}{$verk}{anzahl_titel} . ",";
+		$line = Data::remove_ws($verk) . "," . $self->{verk_liste}{$verk}{anzahl_titel} . ",";
 		# titel1, titel2, titel3 ...		
 		foreach my $titel (@titel) {
 			# Zeilen
@@ -438,7 +471,7 @@ sub export_csv {
 				$line = $line . "-,";
 			}
 		}
-		$line = $line . ${$self->{verk_liste}}{$verk}{summe_preis} . "\n";
+		$line = $line . $self->{verk_liste}{$verk}{summe_preis} . "\n";
 		push @matrix, $line;
 	}
 	File::writefile_count($export_file, @matrix);

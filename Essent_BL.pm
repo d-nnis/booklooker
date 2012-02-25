@@ -4,6 +4,7 @@ use feature "switch";
 use strict;
 use warnings;
 
+
 print "Modul Essent_BL.pm\n";
 {
 	package File;
@@ -112,7 +113,7 @@ print "Modul Essent_BL.pm\n";
 		my $file = shift;
 		#my @lines = @_[1 .. $#_];	# alle Elemente 1 bis Ende
 		my @lines = @_;	# alle Elemente 0 bis Ende
-		print "write file ", $file;
+		#print "write file ", $file;
 		if (!open (WFILE, '>', $file) ) {
 			print "\n!!! Achtung: Kann $file nicht oeffnen: $!\nNeuer Versuch Tastendruck";
 			while (<STDIN> eq '') {}
@@ -120,7 +121,7 @@ print "Modul Essent_BL.pm\n";
 		}
 		open (WFILE, '>', $file);
 		print WFILE @lines;
-		print " lines: ", scalar @lines, ".\n";
+		#print " lines: ", scalar @lines, ".\n";
 		close WFILE;
 	}
 	
