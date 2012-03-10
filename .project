@@ -14,4 +14,16 @@
 	<natures>
 		<nature>org.epic.perleditor.perlnature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>comments.pl</name>
+			<type>1</type>
+			<location>F:/xampp/htdocs/xampp/external/comments.pl</location>
+		</link>
+		<link>
+			<name>index.html</name>
+			<type>1</type>
+			<location>F:/xampp/htdocs/xampp/external/index.html</location>
+		</link>
+	</linkedResources>
 </projectDescription>
