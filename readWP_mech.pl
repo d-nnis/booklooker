@@ -20,7 +20,10 @@ my %config = File::readfile("..\\_excl\\login.csv",'config');
 package main;
 ##################
 
-my $url = "http://www.booklooker.de/";
+# get system links via %config
+
+#my $url = "http://www.booklooker.de/";
+my $url = $config{url};
 my $url_login = "http://www.booklooker.de/app/sec/login.php";
 my $output_file = "f:\\Users\\d-nnis\\reapWP_output.html"; 
 my $cookie_file = "f:\\Users\\d-nnis\\reapWP_cookie.txt";
