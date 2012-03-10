@@ -50,7 +50,9 @@ foreach my $verk (keys %{$bookl->{verk_liste}}) {
 }
 
 $bookl->uebersicht_verk_liste;
-$bookl->export_csv($export_file);
+#$bookl->export_csv($export_file);
+# Ausgabe über html-table
+$bookl->export_html;
 
 exit 2;
 
@@ -437,6 +439,9 @@ sub export_csv {
 	#verk, titel1, titel2
 }
 
+sub export_html {
+	my $self = shift;
+}
 
 sub tp_content {
 	my $self = shift;
