@@ -24,11 +24,9 @@ package main;
 
 my $url = "http://www.booklooker.de/";
 my $url_login = "http://www.booklooker.de/app/sec/login.php";
-my $output_file = "f:\\Users\\d-nnis\\reapWP_output.html"; 
-my $cookie_file = "f:\\Users\\d-nnis\\reapWP_cookie.txt";
-my $cookie_booklooker = "f:\\Users\\d-nnis\\cookie_booklooker.txt";
-my $manuell_cookie = "f:\\Users\\d-nnis\\bookl_cookie_manuell.txt";
-my $export_file = "f:\\Users\\d-nnis\\reapWP_exportfile.csv";
+my $output_file = $config{output_file}; 
+my $cookie_file = $config{cookie_file};
+my $export_file = $config{export_file};
 my $username = $config{uname};
 my $password = $config{pwd};
 
@@ -62,8 +60,8 @@ sub tp_content {
 }
 sub getstate {
 	File::writefile($output_file, $browser->content);
-	my @args = ("f:\\Program Files (x86)\\K-Meleon\\k-meleon.exe",$output_file);
-	system(@args); 
+	#my @args = ("f:\\Program Files (x86)\\K-Meleon\\k-meleon.exe",$output_file);
+	#system(@args); 
 }
 sub convert_char {
 	my $string = shift;
@@ -126,7 +124,7 @@ sub login {
 		$browser->field(loginPass=>$password);
 		$browser->tick("longSession", "on");
 		$browser->click();
-		$cookie_jar->save($cookie_booklooker);
+		$cookie_jar->save($cookie_file);
 		print "Now logged in booklooker.de\n" if $self->is_logged_in;
 	}
 }
