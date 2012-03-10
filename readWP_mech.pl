@@ -112,7 +112,9 @@ sub login {
 	#my $cookie_jar = HTTP::Cookies->new();
 	my $cookie_jar = HTTP::Cookies->new(file => "$cookie_file", autosave => 1);
 	$cookie_jar->clear("web6.codeprobe.de");
-	$cookie_jar->load($cookie_booklooker);
+	if (-e $cookie_file) {
+		$cookie_jar->load($cookie_file);
+	}
 	$browser->cookie_jar($cookie_jar);
 	$browser->get($url);
 	if ($self->is_logged_in) {
