@@ -14,7 +14,14 @@ use Encode;
 use URI::Escape;
 $|=1;
 
-my %config = File::readfile("..\\_excl\\login.csv",'config');
+my $os = $^O;
+my %config;
+if ($os =~ /Win/) {
+	%config = File::readfile("..\\_excl\\login.csv",'config');	
+} elsif ($os =~ /linux/) {
+	%config = File::readfile("../_excl/login.csv",'config');
+}
+
 
 ##################
 package main;
@@ -29,6 +36,9 @@ my $cookie_file = $config{cookie_file};
 my $export_file = $config{export_file};
 my $username = $config{uname};
 my $password = $config{pwd};
+
+print $os,"\n";
+
 
 my $browser = WWW::Mechanize->new();
 my $tp = HTML::TokeParser->new(doc => \$browser->content);
