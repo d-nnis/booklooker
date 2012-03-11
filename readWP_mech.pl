@@ -6,6 +6,7 @@ use HTTP::Cookies;
 use feature qw/switch/;
 use HTML::PullParser;
 use HTML::TokeParser;
+use LWP::Protocol;
 #use HTML::Parser;
 use base qw(HTML::Parser);
 use utf8;
@@ -14,12 +15,14 @@ use Encode;
 use URI::Escape;
 $|=1;
 
+$ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
+
 my $os = $^O;
 my %config;
 if ($os =~ /Win/) {
-	%config = File::readfile("..\\_excl\\login.csv",'config');	
+	%config = File::readfile("config.csv",'config');	
 } elsif ($os =~ /linux/) {
-	%config = File::readfile("../_excl/login.csv",'config');
+	%config = File::readfile("config.csv",'config');
 }
 
 
@@ -144,7 +147,9 @@ sub is_logged_in {
 	main::tp_content;
 	my $in = 0;
 	while (my $token=$tp->get_tag("div")) {
-		$in = 1 if ($token->[1]{id} eq "header_logout");	
+		if ($token->[1]{id}) {
+			$in = 1 if ($token->[1]{id} eq "header_logout");
+		}
 	}
 	if ($in == 1) {
 		print "Logged in!\n";
@@ -170,7 +175,9 @@ sub tokeparse_titel {
 	main::tp_content;
 	while (my $token = $tp->get_tag("span")) {
 		# ein Buch
-		next unless $token->[1]{class} eq 'artikeltitel'; 
+		if ($token->[1]{class}) {
+			next unless $token->[1]{class} eq 'artikeltitel';
+		}
 		my $text_titel = $tp->get_trimmed_text("/span");
 		$buecher{$text_titel}{autor} = $tp->get_trimmed_text("br"); # Autor 
 		#$buecher{$text_titel}{verlag} = $tp->get_trimmed_text("br/");
