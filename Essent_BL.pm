@@ -405,28 +405,6 @@ print "Modul Essent_BL.pm\n";
 		return $pagenumber;
 	}
 	
-	sub stichprobe {
-		# stichproben fertig für Datei-Ausgabe
-		my $rdata = shift;
-		my $sp_zahl = shift;
-		$sp_zahl = 3 unless defined $sp_zahl;
-		
-		my @data_arr = @$rdata;
-		my $i = $sp_zahl -2;
-		my @sp_temp;
-		if ($i > 0) {
-			for ($i; $i <= $sp_zahl; $i++) {
-				push @sp_temp, ($i+1).":".$data_arr[sprintf('%d',(scalar @data_arr)/2)];
-				#$b=sprintf("%.2f", $a);
-			}
-		}
-		my @sp;
-		unshift @sp, ("0:".$data_arr[0]);
-		push @sp, @sp_temp;
-		push @sp, ("l:".$data_arr[-1]);
-		return @sp;
-	}
-	
 	sub addchar {
 		my $base = shift;
 		$base = '' unless defined $base;

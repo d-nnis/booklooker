@@ -13,16 +13,15 @@ use utf8;
 no utf8;
 use Encode;
 use URI::Escape;
-$|=1;
 
 $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
 
 my $os = $^O;
 my %config;
 if ($os =~ /Win/) {
-	%config = File::readfile("config.csv",'config');	
+	%config = File::readfile("..\\config.csv",'config');	
 } elsif ($os =~ /linux/) {
-	%config = File::readfile("config.csv",'config');
+	%config = File::readfile("../config.csv",'config');
 }
 
 
