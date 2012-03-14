@@ -205,7 +205,7 @@ sub suche_titel {
 		return;
 	}
 	# Sortierung nach Preis
-	if ($browser->find_link('Preis')) {
+	if ($browser->find_link(text=>'Preis')) {
 		$browser->follow_link(text=>'Preis');
 	}
 	# Anzeige auf 50 Titel vergrößern
@@ -214,7 +214,8 @@ sub suche_titel {
 	}
 	main::tp_content;
 	while (my $token = $tp->get_tag("td")) {
-		my $att = $token->[1]{class};
+		my $att = '';
+		$att = $token->[1]{class} if defined $token->[1]{class};
 		next unless $att eq 'resultlist_count';
 		my $text = $tp->get_trimmed_text("/td");
 		$text =~ /(\d+)\sTreffer/;
